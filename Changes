@@ -1,0 +1,6 @@
+Revision history for Perl extension Win32::GlobalHotkey.
+
+0.01  Tue Sep 25 10:13:17 2012
+	- original version; created by h2xs 1.23 with options
+		-A -n Win32::GlobalHotkey
+

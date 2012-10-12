@@ -5,11 +5,63 @@ use warnings;
 use threads;
 use threads::shared;
 use Thread::Cancel;
+use Carp;
+
+=head1 NAME
+
+Win32::GlobalHotkey - Use System-wide Hotkeys independently
+
+=head1 VERSION
+
+Version 0.01_1
+
+=cut
 
 our $VERSION = '0.01_1';
 
 require XSLoader;
-XSLoader::load('Win32::GlobalHotkey', $VERSION);
+XSLoader::load( 'Win32::GlobalHotkey', $VERSION );
+
+
+# Look at (msdn RegisterHotkey)
+# http://msdn.microsoft.com/en-us/library/windows/desktop/ms646309%28v=vs.85%29.aspx
+use constant {
+	MOD_ALT      => 0x0001,
+	MOD_CONTROL  => 0x0002,
+	MOD_NOREPEAT => 0x4000, # only OS-version >= 6.1 (Win7)
+	MOD_SHIFT    => 0x0004,
+	MOD_WIN      => 0x0008,
+};
+
+=head1 SYNOPSIS
+
+    use Win32::GlobalHotkey;
+
+    my $hk = Win32::GlobalHotkey->new;
+    
+    $hk->RegisterHotkey( 
+        vkey     => 'B', 
+        modifier => Win32::GlobalHotkey::MOD_ALT, 
+        callback => sub { print "Hotkey pressed!\n" },
+     );
+    
+    $hk->StartEventLoop;
+    
+    #...
+    
+    $hk->StopEventLoop;
+
+=head1 DESCRIPTION
+
+...
+
+=head1 METHODS
+
+=head2 new
+
+Constructs a new object. Nothing more.
+
+=cut
 
 
 sub new {
@@ -17,54 +69,127 @@ sub new {
 	
 	my $this = bless {}, $class;
 	
-	$this->{Hotkeys} = [];
+	$this->{Hotkeys}   = {};
+	$this->{EventLoop} = undef;
 	
 	return $this;
 }
 
+
+=head2 RegisterHotkey( parameter => value, ... )
+
+Prepares the registering of an hotkey. Can be called multiple times (with different values). Can not be called after C<StartEventLoop>
+
+The following parameter are required:
+
+=over 4
+
+=item C<vkey>
+
+The pressed key. Currently only the letter-keys a-z are supported.
+
+=item C<modifier>
+
+=over 8
+
+The Keyboard modifier (ALT, CTRL, SHIFT, WINDOWS). Use the following. Can be combinated with a Bitwise OR ("|").
+
+=item C<Win32::GlobalHotkey::MOD_ALT>
+
+=item C<Win32::GlobalHotkey::MOD_CONTROL>
+
+=item C<Win32::GlobalHotkey::MOD_SHIFT>
+
+=item C<Win32::GlobalHotkey::MOD_WIN>
+
+=back
+
+=item C<callback>
+
+A subroutine reference which is called if the hotkey is pressed.
+
+=back
+
+=cut
+
 sub RegisterHotkey {
 	my ( $this, %p ) = @_;
 	
-	$p{vkey} = ord $p{vkey};
+	if ( $this->{EventLoop} && $this->{EventLoop}->is_running ) {
+		carp 'EventLoop already running. Stop it to register another Hotkey';
+		return 0;
+	}
 	
-	push @{ $this->{Hotkeys} }, { vkey => $p{vkey}, modifier => $p{modifier}, cb => $p{cb} };
+	if ( not $p{vkey} =~ /^[A-Za-z]$/ ) {
+		carp 'vkey is not a letter key';
+		return 0;
+	}
+	
+	$p{vkey} = ord uc $p{vkey};
+
+	if ( exists $this->{Hotkeys}{ $p{vkey} . $p{modifier} } ) {
+		carp 'Hotkey already prepared for registering';
+		return 0;
+	}
 	
 	
-	1;
+	$this->{Hotkeys}{ $p{vkey} . $p{modifier} } = { vkey => $p{vkey}, modifier => $p{modifier}, cb => $p{cb} };
+	
+	return 1;
 }
+
+=head2 UnregisterHotkey
+
+not implemented
+
+=cut
+
+sub UnregisterHotkey {
+	my $this = shift;
+	
+}
+
+=head2 StartEventLoop
+
+This method starts the MessageLoop for the (new) hotkey thread. You must stop it, to change registered hotkeys
+    
+=cut
 
 sub StartEventLoop {
 	my $this = shift;
 	
-	my $CBLog   = $this->{CBLog};
-	my @Hotkeys = @{ $this->{Hotkeys} };
-	
+		
 	$this->{EventLoop} = threads->create(  
 		sub {
 			
 			my %atoms;
 			
-			for my $hotkey ( @{ $this->{Hotkeys} } ) {
+			for my $hotkey ( values %{ $this->{Hotkeys} } ) {
 				my $atom = XSRegisterHotkey( 
 					$hotkey->{modifier}, 
 					$hotkey->{vkey}, 
-					'perl_Win32_GlobalHotkey_' . $hotkey->{modifier} . $hotkey->{vkey} 
+					'perl_Win32_GlobalHotkey_' . $hotkey->{vkey} . $hotkey->{modifier} 
 				);
-				
+
 				if ( not $atom  ) {
-					# TODO:
-					# can not register Hotkey:  - already registered?
+					carp 'can not register Hotkey - already registered?';
 				} else {
 					$atoms{ $atom } = $hotkey->{cb};
-				}				
-			}			
-						
+				}
+			}
+									
 			while ( my $atom = XSGetMessage( ) ) {
 				&{ $atoms{ $atom } };
 			}
 		}
 	);
 }
+
+=head2 StopEventLoop
+
+Stops the MessageLoop. Aktually it detach and kill the hotkey thread.
+
+=cut
 
 sub StopEventLoop {
 	my $this = shift;
@@ -82,55 +207,65 @@ sub StopEventLoop {
 #	$this->{EventLoop}->join;
 }
 
-1;
-__END__
-# Below is stub documentation for your module. You'd better edit it!
-
-=head1 NAME
-
-Win32::GlobalHotkey - Perl extension for blah blah blah
-
-=head1 SYNOPSIS
-
-  use Win32::GlobalHotkey;
-  blah blah blah
-
-=head1 DESCRIPTION
-
-Stub documentation for Win32::GlobalHotkey, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
-
-Blah blah blah.
-
-=head2 EXPORT
-
-None by default.
-
-
-
-=head1 SEE ALSO
-
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
-
-If you have a mailing list set up for your module, mention it here.
-
-If you have a web site set up for your module, mention it here.
-
 =head1 AUTHOR
 
-A. U. Thor, E<lt>a.u.thor@a.galaxy.far.far.awayE<gt>
+Tarek Unger, C<< <tu2 at gmx.net> >>
 
-=head1 COPYRIGHT AND LICENSE
+=head1 BUGS
 
-Copyright (C) 2012 by A. U. Thor
+Sure.
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.16.1 or,
-at your option, any later version of Perl 5 you may have available.
+Please report any bugs or feature requests to C<bug-win32-globalhotkey at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Win32-GlobalHotkey>.  I will be notified, and then you'll
+automatically be notified of progress on your bug as I make changes.
+
+=head1 TODO
+
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc Win32::GlobalHotkey
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Win32-GlobalHotkey>
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/Win32-GlobalHotkey>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Win32-GlobalHotkey>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/Win32-GlobalHotkey/>
+
+=back
+
+
+=head1 ACKNOWLEDGEMENTS
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2012 Tarek Unger.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of either: the GNU General Public License as published
+by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
 
 
 =cut
+
+1;
+

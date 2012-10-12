@@ -3,9 +3,17 @@ use ExtUtils::testlib;
 use strict;
 use warnings;
 
+use threads;
+use threads::shared;
+
 use Win32::GlobalHotkey;
 
-use Test::More tests => 1;
+use Test::More;
+
+eval "use Win32::GuiTest";
+plan skip_all => "Win32::GuiTest required for testing" if $@;
+
+
 
 eval {
 	my $hk = Win32::GlobalHotkey->new;
@@ -22,3 +30,7 @@ if ( $@ ) {
 } else {
 	pass 'standard';
 }
+
+
+
+    

@@ -53,7 +53,11 @@ use constant {
 
 =head1 DESCRIPTION
 
-...
+This module let you create system wide hotkeys. Prepare your Hotkeys with the C<RegisterHotkey> method.
+C<StartEventLoop> will create a new thread, register all hotkeys and start the Message Loop for receiving
+of the Events. 
+
+B<The stored callback is called in the context of the thread.>
 
 =head1 METHODS
 
@@ -172,7 +176,7 @@ sub StartEventLoop {
 				);
 
 				if ( not $atom  ) {
-					carp 'can not register Hotkey - already registered?';
+					carp 'can not register Hotkey - already registered? $?, $!';
 				} else {
 					$atoms{ $atom } = $hotkey->{cb};
 				}

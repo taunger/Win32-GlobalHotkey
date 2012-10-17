@@ -4,5 +4,7 @@ Makefile.PL
 MANIFEST
 ppport.h
 README
-t/Win32-GlobalHotkey.t
+t/00-load.t
+t/1.t
+t/2-auto.t
 lib/Win32/GlobalHotkey.pm

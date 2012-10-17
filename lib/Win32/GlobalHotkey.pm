@@ -42,7 +42,7 @@ use constant {
     $hk->RegisterHotkey( 
         vkey     => 'B', 
         modifier => Win32::GlobalHotkey::MOD_ALT, 
-        callback => sub { print "Hotkey pressed!\n" },
+        callback => sub { print "Hotkey pressed!\n" }, # Beware! - You are in another thread.
      );
     
     $hk->StartEventLoop;
@@ -86,7 +86,7 @@ The following parameter are required:
 
 =item C<vkey>
 
-The pressed key. Currently only the letter-keys a-z are supported.
+The pressed key. Currently only the letter keys (a-z) are supported.
 
 =item C<modifier>
 
@@ -151,7 +151,7 @@ sub UnregisterHotkey {
 
 =head2 StartEventLoop
 
-This method starts the MessageLoop for the (new) hotkey thread. You must stop it, to change registered hotkeys
+This method starts the MessageLoop for the (new) hotkey thread. You must stop it to change registered hotkeys
     
 =cut
 
@@ -187,7 +187,7 @@ sub StartEventLoop {
 
 =head2 StopEventLoop
 
-Stops the MessageLoop. Aktually it detach and kill the hotkey thread.
+Stops the MessageLoop. Currently, it only detachs and kill the hotkey thread.
 
 =cut
 

@@ -39,7 +39,7 @@ use constant {
 
     my $hk = Win32::GlobalHotkey->new;
     
-    $hk->RegisterHotkey( 
+    $hk->PrepareHotkey( 
         vkey     => 'B', 
         modifier => Win32::GlobalHotkey::MOD_ALT, 
         callback => sub { print "Hotkey pressed!\n" }, # Beware! - You are in another thread.
@@ -53,17 +53,26 @@ use constant {
 
 =head1 DESCRIPTION
 
-This module let you create system wide hotkeys. Prepare your Hotkeys with the C<RegisterHotkey> method.
-C<StartEventLoop> will create a new thread, register all hotkeys and start the Message Loop for receiving
-of the Events. 
+This module let you create system wide hotkeys. Prepare your Hotkeys with the C<PrepareHotkey> method.
+C<StartEventLoop> will initialize a new thread, register all hotkeys and start the Message Loop for event receiving. 
 
-B<The stored callback is called in the context of the thread.>
+B<The stored callback is executed in the context of the thread.>
 
 =head1 METHODS
 
 =head2 new
 
-Constructs a new object. Nothing more.
+Constructs a new object.
+
+You can pass a parameter C<warn> with your own callback method to the constuctor. Defaults to:
+
+    Win32::GlobalHotkey->new( 
+        warn => sub {
+            carp $_[0];
+        }
+    );
+
+B<Beware!> The callback is executed in thread context at the time the EventLoop is running.
 
 =cut
 
@@ -73,18 +82,20 @@ sub new {
 	
 	my $this = bless {}, $class;
 	
-	$this->{Hotkeys}   = {};
+	$this->{warn} = $p{warn} // sub { carp $_[0] };
+	
+	$this->{Hotkey}    = {};
 	$this->{EventLoop} = undef;
 	
 	return $this;
 }
 
 
-=head2 RegisterHotkey( parameter => value, ... )
+=head2 PrepareHotkey( parameter => value, ... )
 
-Prepares the registering of an hotkey. Can be called multiple times (with different values). Can not be called after C<StartEventLoop>
+Prepares the registration of an hotkey. Can be called multiple times (with different values). Can not be called after C<StartEventLoop>.
 
-The following parameter are required:
+The following parameters are required:
 
 =over 4
 
@@ -116,41 +127,38 @@ A subroutine reference which is called if the hotkey is pressed.
 
 =cut
 
-sub RegisterHotkey {
+# Hotkey Hash Format:
+# vkey     => the virtuell (normal) key like a 'b'
+# modifier => one of the modifiers above
+# cb       => sub { ... }
+# keycode  => ord uc vkey => the ascii (ansi?) keycode
+#
+# saved in the Hash Hotkey as keycode . modifier 
+
+sub PrepareHotkey {
 	my ( $this, %p ) = @_;
 	
 	if ( $this->{EventLoop} && $this->{EventLoop}->is_running ) {
-		carp 'EventLoop already running. Stop it to register another Hotkey';
+		$this->{warn}->( 'EventLoop already running. Stop it to register another Hotkey' );
 		return 0;
 	}
 	
 	if ( not $p{vkey} =~ /^[A-Za-z]$/ ) {
-		carp 'vkey is not a letter key';
+		$this->{warn}->( 'vkey is not a letter key' );
 		return 0;
 	}
 	
-	$p{vkey} = ord uc $p{vkey};
+	my $keycode = ord uc $p{vkey}; # calculate ascii - use only upper case letters
 
-	if ( exists $this->{Hotkeys}{ $p{vkey} . $p{modifier} } ) {
-		carp 'Hotkey already prepared for registering';
+	if ( exists $this->{Hotkey}{ $p{vkey} . $p{modifier} } ) {
+		$this->{warn}->( 'Hotkey already prepared for registering' );
 		return 0;
 	}
-	
-	
-	$this->{Hotkeys}{ $p{vkey} . $p{modifier} } = { vkey => $p{vkey}, modifier => $p{modifier}, cb => $p{cb} };
+
+	$this->{Hotkey}{ $p{vkey} . $p{modifier} } = 
+		{ keycode => $keycode, vkey => $p{vkey}, modifier => $p{modifier}, cb => $p{cb} };
 	
 	return 1;
-}
-
-=head2 UnregisterHotkey
-
-not implemented
-
-=cut
-
-sub UnregisterHotkey {
-	my $this = shift;
-	
 }
 
 =head2 StartEventLoop
@@ -168,15 +176,15 @@ sub StartEventLoop {
 			
 			my %atoms;
 			
-			for my $hotkey ( values %{ $this->{Hotkeys} } ) {
+			for my $hotkey ( values %{ $this->{Hotkey} } ) {
 				my $atom = XSRegisterHotkey( 
 					$hotkey->{modifier}, 
-					$hotkey->{vkey}, 
-					'perl_Win32_GlobalHotkey_' . $hotkey->{vkey} . $hotkey->{modifier} 
+					$hotkey->{keycode}, 
+					'perl_Win32_GlobalHotkey_' . $hotkey->{vkey} . '_' . $hotkey->{modifier} 
 				);
 
 				if ( not $atom  ) {
-					carp 'can not register Hotkey - already registered? $?, $!';
+					$this->{warn}->( "can not register Hotkey - already registered?" );
 				} else {
 					$atoms{ $atom } = $hotkey->{cb};
 				}
@@ -209,6 +217,17 @@ sub StopEventLoop {
 	
 	
 #	$this->{EventLoop}->join;
+}
+
+=head2 GetConstant( name )
+
+Static utility method to return the appropriate constant value for the given string.
+
+=cut
+
+sub GetConstant {
+	no strict 'refs';
+	return &{ $_[1] };	
 }
 
 =head1 AUTHOR

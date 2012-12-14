@@ -20,7 +20,7 @@ unsigned short XSRegisterHotkey( unsigned int modifier, unsigned int vkey, char*
 MSG msg;
 unsigned int XSGetMessage() {
 	
-	if ( GetMessage(&msg, NULL, 0, 0) != 0 ) {
+	if ( GetMessage( &msg, NULL, 0, 0 ) != 0 ) {
 		return msg.wParam;
 	} else {
 		return 0;

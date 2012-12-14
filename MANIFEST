@@ -5,6 +5,8 @@ MANIFEST
 ppport.h
 README
 t/00-load.t
-t/1.t
-t/2-auto.t
+t/01.t
+t/02-auto.t
+t/03-warn-cb.t
+t/04-constant.t
 lib/Win32/GlobalHotkey.pm

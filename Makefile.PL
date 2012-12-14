@@ -5,7 +5,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME              => 'Win32::GlobalHotkey',
     VERSION_FROM      => 'lib/Win32/GlobalHotkey.pm', # finds $VERSION
-    PREREQ_PM         => { 'Thread::Cancel' =>  '0',  'threads' => '0', 'threads::shared' => '0'  }, # e.g., Module::Name => 1.1
+    PREREQ_PM         => { 'Thread::Cancel' =>  '0',  'threads' => '0', 'threads::shared' => '0', 'Carp' => '0' }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Win32/GlobalHotkey.pm', # retrieve abstract from module
        AUTHOR         => 'Tarek Unger <tu2@gmx.net>') : ()),

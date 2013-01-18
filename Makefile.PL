@@ -1,4 +1,4 @@
-use 5.016001;
+use 5.16.0;
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -14,4 +14,10 @@ WriteMakefile(
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
 	# Un-comment this if you add C files to link with later:
     # OBJECT            => '$(O_FILES)', # link all the C files too
+    
+    META_MERGE => {
+        resources => {
+            repository  => 'https://github.com/taunger/Win32-GlobalHotkey',
+        },
+    },
 );

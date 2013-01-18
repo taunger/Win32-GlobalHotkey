@@ -9,7 +9,7 @@ use Carp;
 
 =head1 NAME
 
-Win32::GlobalHotkey - Use System-wide Hotkeys independently
+Win32::GlobalHotkey - use system-wide hotkeys independently
 
 =head1 VERSION
 
@@ -270,6 +270,10 @@ L<http://cpanratings.perl.org/d/Win32-GlobalHotkey>
 =item * Search CPAN
 
 L<http://search.cpan.org/dist/Win32-GlobalHotkey/>
+
+=item * Repository
+
+L<https://github.com/taunger/Win32-GlobalHotkey>
 
 =back
 
